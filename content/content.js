@@ -396,6 +396,20 @@ function detectAndCleanBubbles(canvas) {
 // ============================================
 
 /**
+ * Clean bubble by filling with white
+ * تنظيف الفقاعة بملئها بالأبيض
+ * @param {HTMLCanvasElement} canvas - الكانفاس
+ * @param {Object} bubble - معلومات الفقاعة
+ */
+function cleanBubble(canvas, bubble) {
+  const ctx = canvas.getContext('2d');
+  
+  // رسم مستطيل أبيض يغطي الفقاعة بالكامل
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(bubble.x, bubble.y, bubble.width, bubble.height);
+}
+
+/**
  * Add translated text to bubble
  * إضافة النص المترجم للفقاعة
  * @param {HTMLCanvasElement} canvas - الكانفاس
@@ -409,8 +423,8 @@ function addTextToBubble(canvas, text, bubble, isRTL = false) {
   // Calculate font size based on bubble size - حساب حجم الخط
   const maxWidth = bubble.width * 0.85;
   const maxHeight = bubble.height * 0.85;
-  let fontSize = Math.min(maxWidth / 8, maxHeight / 3, 24);
-  fontSize = Math.max(fontSize, 10); // Minimum font size - الحد الأدنى للخط
+  let fontSize = Math.min(maxWidth / 5, maxHeight / 2, 48);
+  fontSize = Math.max(fontSize, 16); // minimum 16px for readability
   
   // Set text properties - تعيين خصائص النص
   ctx.font = `bold ${fontSize}px "Segoe UI", "Noto Sans Arabic", "Noto Sans JP", sans-serif`;
@@ -586,8 +600,11 @@ async function translateImage(img, settings) {
       const textParts = cleanedTranslation.split(/[.!?。！？\n]+/).filter(t => t.trim());
       
       bubbles.forEach((bubble, index) => {
-        const textPart = textParts[index % textParts.length] || cleanedTranslation;
-        addTextToBubble(canvas, textPart.trim(), bubble, isRTL);
+        cleanBubble(canvas, bubble);
+        // كل فقاعة تاخد سطر واحد بس، مش كل النص
+        if (index < textParts.length && textParts[index]) {
+          addTextToBubble(canvas, textParts[index].trim(), bubble, isRTL);
+        }
       });
     } else {
       // If no bubbles found, add text overlay - إذا لم توجد فقاعات، إضافة طبقة نص
