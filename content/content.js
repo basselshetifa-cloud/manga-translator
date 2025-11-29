@@ -759,7 +759,7 @@ function getEdgeColor(ctx, x, y, width, height, canvasWidth, canvasHeight) {
   // Top edge
   for (let i = 0; i < width; i++) {
     const idx = i * 4;
-    if (idx < data.length - 2) {
+    if (idx + 2 < data.length) {
       totalR += data[idx];
       totalG += data[idx + 1];
       totalB += data[idx + 2];
@@ -770,7 +770,7 @@ function getEdgeColor(ctx, x, y, width, height, canvasWidth, canvasHeight) {
   // Bottom edge
   for (let i = 0; i < width; i++) {
     const idx = ((height - 1) * width + i) * 4;
-    if (idx >= 0 && idx < data.length - 2) {
+    if (idx >= 0 && idx + 2 < data.length) {
       totalR += data[idx];
       totalG += data[idx + 1];
       totalB += data[idx + 2];
@@ -781,7 +781,7 @@ function getEdgeColor(ctx, x, y, width, height, canvasWidth, canvasHeight) {
   // Left edge
   for (let j = 0; j < height; j++) {
     const idx = (j * width) * 4;
-    if (idx < data.length - 2) {
+    if (idx + 2 < data.length) {
       totalR += data[idx];
       totalG += data[idx + 1];
       totalB += data[idx + 2];
@@ -792,7 +792,7 @@ function getEdgeColor(ctx, x, y, width, height, canvasWidth, canvasHeight) {
   // Right edge
   for (let j = 0; j < height; j++) {
     const idx = (j * width + width - 1) * 4;
-    if (idx >= 0 && idx < data.length - 2) {
+    if (idx >= 0 && idx + 2 < data.length) {
       totalR += data[idx];
       totalG += data[idx + 1];
       totalB += data[idx + 2];
@@ -832,12 +832,11 @@ function renderTextItem(canvas, item, isRTL) {
   const w = (item.bbox.width / 100) * canvas.width;
   const h = (item.bbox.height / 100) * canvas.height;
   
-  // No padding - exact text area only (no extra space)
-  const padding = 0;
-  const px = Math.max(0, x - padding);
-  const py = Math.max(0, y - padding);
-  const pw = Math.min(canvas.width - px, w + padding * 2);
-  const ph = Math.min(canvas.height - py, h + padding * 2);
+  // Clamp to canvas bounds - exact text area only (no extra padding)
+  const px = Math.max(0, x);
+  const py = Math.max(0, y);
+  const pw = Math.min(canvas.width - px, w);
+  const ph = Math.min(canvas.height - py, h);
   
   // Get colors from edge sampling (smart fill) - أخذ الألوان من عينات الحافة
   const colors = getEdgeColor(ctx, px, py, pw, ph, canvas.width, canvas.height);
