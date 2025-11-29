@@ -239,6 +239,32 @@ async function extractAndTranslateViaBackground(imageData, settings) {
   });
 }
 
+/**
+ * Extract text with locations via background script using Gemini Vision API
+ * استخراج النصوص مع مواقعها عبر سكريبت الخلفية باستخدام Gemini Vision API
+ * @param {string} imageData - الصورة كـ data URL
+ * @param {Object} settings - إعدادات الترجمة
+ * @returns {Promise<Array>} مصفوفة النصوص مع مواقعها
+ */
+async function extractTextWithLocationsViaBackground(imageData, settings) {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(
+      { action: 'extractTextWithLocations', imageData: imageData, settings: settings },
+      (response) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+        if (response && response.success) {
+          resolve(response.items);
+        } else {
+          reject(new Error(response?.error || 'فشل استخراج النصوص مع المواقع'));
+        }
+      }
+    );
+  });
+}
+
 // ============================================
 // Translation Functions - وظائف الترجمة
 // ============================================
@@ -642,6 +668,127 @@ function detectAndCleanBubbles(canvas, textRegions = null) {
 // Text Rendering Functions - وظائف عرض النص
 // ============================================
 
+// Shared canvas for font size calculation to avoid creating new elements
+let fontSizeCalcCanvas = null;
+
+/**
+ * Calculate optimal font size to fit text within a box
+ * حساب أفضل حجم خط ليناسب النص في المربع
+ * @param {number} width - عرض المربع
+ * @param {number} height - ارتفاع المربع
+ * @param {string} text - النص
+ * @returns {number} حجم الخط الأمثل
+ */
+function calculateFontSizeForBox(width, height, text) {
+  const maxFontSize = Math.min(width / 2, height * 0.8, 48);
+  const minFontSize = 12;
+  
+  let fontSize = maxFontSize;
+  // Reuse canvas for performance
+  if (!fontSizeCalcCanvas) {
+    fontSizeCalcCanvas = document.createElement('canvas');
+  }
+  const ctx = fontSizeCalcCanvas.getContext('2d');
+  
+  while (fontSize > minFontSize) {
+    ctx.font = `bold ${fontSize}px "Noto Sans Arabic", Arial, sans-serif`;
+    const metrics = ctx.measureText(text);
+    if (metrics.width <= width * 0.9) break;
+    fontSize -= 2;
+  }
+  
+  return Math.max(fontSize, minFontSize);
+}
+
+/**
+ * Wrap text to fit within a specific box
+ * تقسيم النص ليناسب مربع معين
+ * @param {CanvasRenderingContext2D} ctx - سياق الكانفاس
+ * @param {string} text - النص
+ * @param {number} maxWidth - العرض الأقصى
+ * @returns {Array<string>} مصفوفة الأسطر
+ */
+function wrapTextInBox(ctx, text, maxWidth) {
+  const words = text.split(/\s+/);
+  const lines = [];
+  let currentLine = '';
+  
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    if (ctx.measureText(testLine).width > maxWidth && currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = testLine;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+  
+  return lines.length > 0 ? lines : [text];
+}
+
+/**
+ * Render text item on canvas using bounding box approach
+ * رسم النص على الكانفاس باستخدام نهج الـ bounding box
+ * @param {HTMLCanvasElement} canvas - الكانفاس
+ * @param {Object} item - معلومات النص مع الموقع
+ * @param {boolean} isRTL - هل النص من اليمين لليسار
+ */
+function renderTextItem(canvas, item, isRTL) {
+  const ctx = canvas.getContext('2d');
+  
+  // Convert percentage to pixels
+  const x = (item.bbox.x / 100) * canvas.width;
+  const y = (item.bbox.y / 100) * canvas.height;
+  const w = (item.bbox.width / 100) * canvas.width;
+  const h = (item.bbox.height / 100) * canvas.height;
+  
+  // Add padding
+  const padding = 5;
+  const px = Math.max(0, x - padding);
+  const py = Math.max(0, y - padding);
+  const pw = Math.min(canvas.width - px, w + padding * 2);
+  const ph = Math.min(canvas.height - py, h + padding * 2);
+  
+  // Choose colors based on background
+  const bgColor = item.darkBackground ? '#000000' : '#FFFFFF';
+  const textColor = item.darkBackground ? '#FFFFFF' : '#000000';
+  const strokeColor = item.darkBackground ? '#000000' : '#FFFFFF';
+  
+  // Clear original text area
+  ctx.fillStyle = bgColor;
+  ctx.fillRect(px, py, pw, ph);
+  
+  // Calculate font size
+  const fontSize = calculateFontSizeForBox(w, h, item.translated);
+  ctx.font = `bold ${fontSize}px "Noto Sans Arabic", Arial, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.direction = isRTL ? 'rtl' : 'ltr';
+  
+  // Wrap text if needed
+  const lines = wrapTextInBox(ctx, item.translated, w * 0.95);
+  const lineHeight = fontSize * 1.2;
+  const totalHeight = lines.length * lineHeight;
+  const startY = y + (h - totalHeight) / 2 + lineHeight / 2;
+  
+  // Draw each line
+  lines.forEach((line, i) => {
+    const lineY = startY + i * lineHeight;
+    const lineX = x + w / 2;
+    
+    // Stroke for visibility - cap at 3px to maintain readability
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = Math.min(fontSize / 4, 3);
+    ctx.lineJoin = 'round';
+    ctx.strokeText(line, lineX, lineY);
+    
+    // Fill text
+    ctx.fillStyle = textColor;
+    ctx.fillText(line, lineX, lineY);
+  });
+}
+
 /**
  * Clean bubble using detected pixels or ellipse shape
  * تنظيف الفقاعة باستخدام البكسلات المكتشفة أو الشكل البيضاوي
@@ -804,8 +951,8 @@ async function fetchImageViaBackground(url) {
 }
 
 /**
- * Translate a single image
- * ترجمة صورة واحدة
+ * Translate a single image using Gemini Vision bounding box approach
+ * ترجمة صورة واحدة باستخدام نهج الـ bounding box من Gemini Vision
  * @param {HTMLImageElement} img - عنصر الصورة
  * @param {Object} settings - الإعدادات
  * @returns {Promise<HTMLCanvasElement>} الكانفاس المترجم
@@ -867,66 +1014,36 @@ async function translateImage(img, settings) {
     const imageHash = hashImageData(imageDataUrl);
     const cachedData = getCachedTranslation(imageHash, settings.targetLang);
     
-    let translatedText;
-    if (cachedData) {
+    let textItems;
+    if (cachedData && cachedData.items) {
       sendProgress(50, 'تم استخدام الترجمة المخزنة...');
-      translatedText = cachedData.text;
+      textItems = cachedData.items;
     } else {
-      // Use Gemini Vision API to extract and translate in one step
-      // استخدام Gemini Vision API للاستخراج والترجمة في خطوة واحدة
-      sendProgress(35, 'جاري استخراج النص وترجمته بالذكاء الاصطناعي...');
-      translatedText = await extractAndTranslateViaBackground(imageDataUrl, settings);
+      // Use Gemini Vision API to extract text with locations
+      // استخدام Gemini Vision API لاستخراج النص مع المواقع
+      sendProgress(30, 'جاري تحليل الصورة واستخراج النصوص...');
+      textItems = await extractTextWithLocationsViaBackground(imageDataUrl, settings);
       
-      // Cache the translation - تخزين الترجمة
-      setCachedTranslation(imageHash, settings.targetLang, { text: translatedText });
+      // Cache the text items - تخزين النصوص
+      setCachedTranslation(imageHash, settings.targetLang, { items: textItems });
     }
     
-    // Clean up text - تنظيف النص
-    const cleanedTranslation = translatedText.trim().replace(/\n{3,}/g, '\n\n');
+    console.log('Found text items:', textItems);
     
-    if (!cleanedTranslation) {
+    if (!textItems || textItems.length === 0) {
       throw new Error('لم يتم العثور على نص في الصورة');
     }
     
-    console.log('Translated text:', cleanedTranslation);
+    sendProgress(60, 'جاري استبدال النصوص...');
     
-    // Detect and clean bubbles - كشف وتنظيف الفقاعات
-    sendProgress(75, 'جاري معالجة فقاعات الكلام...');
-    const bubbles = detectAndCleanBubbles(canvas);
-    
-    // Add translated text to bubbles - إضافة النص المترجم
-    sendProgress(85, 'جاري إضافة النص المترجم...');
+    // Process each text item using bounding box approach
     const isRTL = settings.targetLang === 'Arabic';
     
-    if (bubbles.length > 0) {
-      // Distribute text among bubbles - توزيع النص على الفقاعات
-      const textParts = cleanedTranslation.split(/[.!?。！？\n]+/).filter(t => t.trim());
-      
-      // Sort bubbles by position (top to bottom, right to left for RTL)
-      bubbles.sort((a, b) => {
-        const yDiff = a.centerY - b.centerY;
-        if (Math.abs(yDiff) > 50) return yDiff;
-        return isRTL ? b.centerX - a.centerX : a.centerX - b.centerX;
-      });
-      
-      bubbles.forEach((bubble, index) => {
-        cleanBubble(canvas, bubble);
-        // Each bubble gets one line of text
-        if (index < textParts.length) {
-          addTextToBubble(canvas, textParts[index].trim(), bubble, isRTL);
-        }
-      });
-    } else {
-      // If no bubbles found, add text overlay - إذا لم توجد فقاعات، إضافة طبقة نص
-      const fakeBubble = {
-        centerX: canvas.width / 2,
-        centerY: canvas.height * 0.9,
-        width: canvas.width * 0.8,
-        height: canvas.height * 0.15,
-        colors: { background: '#FFFFFF', text: '#000000' }
-      };
-      addTextToBubble(canvas, cleanedTranslation, fakeBubble, isRTL);
+    for (const item of textItems) {
+      renderTextItem(canvas, item, isRTL);
     }
+    
+    sendProgress(90, 'تم!');
     
     // Store canvas reference for download - تخزين مرجع الكانفاس للتحميل
     canvas.setAttribute('data-image-id', imageId);
