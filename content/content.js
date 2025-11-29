@@ -539,6 +539,31 @@ function wrapText(ctx, text, maxWidth) {
 // ============================================
 
 /**
+ * Fetch image via background script to bypass CORS
+ * تحميل الصورة عبر الخلفية لتجاوز CORS
+ * @param {string} url - رابط الصورة
+ * @returns {Promise<string>} الصورة كـ base64 data URL
+ */
+async function fetchImageViaBackground(url) {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(
+      { action: 'fetchImage', url: url },
+      (response) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+        if (response && response.success) {
+          resolve(response.data);
+        } else {
+          reject(new Error(response?.error || 'Failed to fetch image'));
+        }
+      }
+    );
+  });
+}
+
+/**
  * Translate a single image
  * ترجمة صورة واحدة
  * @param {HTMLImageElement} img - عنصر الصورة
@@ -549,21 +574,44 @@ async function translateImage(img, settings) {
   try {
     // Create canvas from image - إنشاء كانفاس من الصورة
     const canvas = document.createElement('canvas');
-    canvas.width = img.naturalWidth || img.width;
-    canvas.height = img.naturalHeight || img.height;
     const ctx = canvas.getContext('2d');
     
-    // Handle CORS for external images - معالجة CORS للصور الخارجية
-    const tempImg = new Image();
-    tempImg.crossOrigin = 'anonymous';
-    
-    await new Promise((resolve, reject) => {
-      tempImg.onload = resolve;
-      tempImg.onerror = () => reject(new Error('Failed to load image'));
-      tempImg.src = img.src;
-    });
-    
-    ctx.drawImage(tempImg, 0, 0);
+    // Try to load image, use background fetch if CORS fails
+    // محاولة تحميل الصورة، استخدام الخلفية إذا فشل CORS
+    try {
+      // First try direct load - محاولة التحميل المباشر أولاً
+      const tempImg = new Image();
+      tempImg.crossOrigin = 'anonymous';
+      
+      await new Promise((resolve, reject) => {
+        tempImg.onload = resolve;
+        tempImg.onerror = reject;
+        tempImg.src = img.src;
+      });
+      
+      canvas.width = tempImg.naturalWidth || tempImg.width;
+      canvas.height = tempImg.naturalHeight || tempImg.height;
+      ctx.drawImage(tempImg, 0, 0);
+    } catch (corsError) {
+      // CORS failed, try via background script
+      // فشل CORS، محاولة عبر الخلفية
+      console.warn('Direct load failed, trying via background...', corsError);
+      sendProgress(12, 'جاري تحميل الصورة عبر الخلفية...');
+      
+      const base64Data = await fetchImageViaBackground(img.src);
+      
+      // Load the base64 image
+      const bgImg = new Image();
+      await new Promise((resolve, reject) => {
+        bgImg.onload = resolve;
+        bgImg.onerror = () => reject(new Error('Failed to load fetched image'));
+        bgImg.src = base64Data;
+      });
+      
+      canvas.width = bgImg.naturalWidth || bgImg.width;
+      canvas.height = bgImg.naturalHeight || bgImg.height;
+      ctx.drawImage(bgImg, 0, 0);
+    }
     
     // Initialize OCR if needed - تهيئة OCR إذا لزم الأمر
     if (!tesseractWorker) {
