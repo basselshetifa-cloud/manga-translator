@@ -668,6 +668,9 @@ function detectAndCleanBubbles(canvas, textRegions = null) {
 // Text Rendering Functions - وظائف عرض النص
 // ============================================
 
+// Shared canvas for font size calculation to avoid creating new elements
+let fontSizeCalcCanvas = null;
+
 /**
  * Calculate optimal font size to fit text within a box
  * حساب أفضل حجم خط ليناسب النص في المربع
@@ -681,8 +684,11 @@ function calculateFontSizeForBox(width, height, text) {
   const minFontSize = 12;
   
   let fontSize = maxFontSize;
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
+  // Reuse canvas for performance
+  if (!fontSizeCalcCanvas) {
+    fontSizeCalcCanvas = document.createElement('canvas');
+  }
+  const ctx = fontSizeCalcCanvas.getContext('2d');
   
   while (fontSize > minFontSize) {
     ctx.font = `bold ${fontSize}px "Noto Sans Arabic", Arial, sans-serif`;
@@ -771,9 +777,9 @@ function renderTextItem(canvas, item, isRTL) {
     const lineY = startY + i * lineHeight;
     const lineX = x + w / 2;
     
-    // Stroke for visibility
+    // Stroke for visibility - cap at 3px to maintain readability
     ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = fontSize / 4;
+    ctx.lineWidth = Math.min(fontSize / 4, 3);
     ctx.lineJoin = 'round';
     ctx.strokeText(line, lineX, lineY);
     

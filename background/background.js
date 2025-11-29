@@ -185,7 +185,17 @@ ${arabicInstructions}`;
       throw new Error('No JSON found in response');
     }
     
-    const items = JSON.parse(jsonMatch[0]);
+    // Default bounding box dimensions (percentage of image)
+    // These represent a reasonable default text region size when API doesn't provide dimensions
+    const DEFAULT_BBOX_WIDTH = 10;  // 10% of image width
+    const DEFAULT_BBOX_HEIGHT = 5;  // 5% of image height
+    
+    let items;
+    try {
+      items = JSON.parse(jsonMatch[0]);
+    } catch (parseError) {
+      throw new Error('Invalid JSON in response');
+    }
     
     // Validate and sanitize items
     return items.map(item => ({
@@ -194,8 +204,8 @@ ${arabicInstructions}`;
       bbox: {
         x: Number(item.bbox?.x) || 0,
         y: Number(item.bbox?.y) || 0,
-        width: Number(item.bbox?.width) || 10,
-        height: Number(item.bbox?.height) || 5
+        width: Number(item.bbox?.width) || DEFAULT_BBOX_WIDTH,
+        height: Number(item.bbox?.height) || DEFAULT_BBOX_HEIGHT
       },
       darkBackground: Boolean(item.darkBackground)
     })).filter(item => item.translated.trim());
