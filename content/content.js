@@ -400,6 +400,7 @@ function detectAndCleanBubbles(canvas) {
  * تنظيف الفقاعة بملئها بالأبيض
  * @param {HTMLCanvasElement} canvas - الكانفاس
  * @param {Object} bubble - معلومات الفقاعة
+ * @returns {void}
  */
 function cleanBubble(canvas, bubble) {
   const ctx = canvas.getContext('2d');
@@ -602,7 +603,7 @@ async function translateImage(img, settings) {
       bubbles.forEach((bubble, index) => {
         cleanBubble(canvas, bubble);
         // كل فقاعة تاخد سطر واحد بس، مش كل النص
-        if (index < textParts.length && textParts[index]) {
+        if (index < textParts.length) {
           addTextToBubble(canvas, textParts[index].trim(), bubble, isRTL);
         }
       });
