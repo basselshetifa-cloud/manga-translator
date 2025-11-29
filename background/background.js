@@ -3,7 +3,11 @@
  * خدمة الخلفية للإضافة
  */
 
-let creatingOffscreen = null;
+// Import Tesseract.js
+importScripts('../lib/tesseract/tesseract.min.js');
+
+let tesseractWorker = null;
+let currentLang = null;
 
 // Extension installation event - حدث تثبيت الإضافة
 chrome.runtime.onInstalled.addListener((details) => {
@@ -27,33 +31,51 @@ chrome.runtime.onStartup.addListener(() => {
 });
 
 /**
- * Create offscreen document for OCR
- * إنشاء مستند خارج الشاشة للـ OCR
+ * Initialize Tesseract OCR worker
+ * تهيئة عامل Tesseract OCR
  */
-async function setupOffscreenDocument() {
-  const offscreenUrl = chrome.runtime.getURL('offscreen/offscreen.html');
-  
-  // Check if offscreen document already exists
-  const existingContexts = await chrome.runtime.getContexts({
-    contextTypes: ['OFFSCREEN_DOCUMENT'],
-    documentUrls: [offscreenUrl]
-  });
-  
-  if (existingContexts.length > 0) {
-    return; // Already exists
+async function initOCR(lang) {
+  // If already initialized with same language, skip
+  if (tesseractWorker && currentLang === lang) {
+    console.log('OCR already initialized for:', lang);
+    return;
   }
   
-  // Create offscreen document
-  if (creatingOffscreen) {
-    await creatingOffscreen;
-  } else {
-    creatingOffscreen = chrome.offscreen.createDocument({
-      url: offscreenUrl,
-      reasons: ['DOM_SCRAPING'],
-      justification: 'OCR text extraction from manga images using Tesseract.js'
+  // Terminate existing worker if different language
+  if (tesseractWorker) {
+    await tesseractWorker.terminate();
+    tesseractWorker = null;
+  }
+  
+  const langMap = {
+    'eng': 'eng',
+    'jpn': 'jpn',
+    'kor': 'kor',
+    'chi_sim': 'chi_sim',
+    'chi_tra': 'chi_tra'
+  };
+  
+  const tesseractLang = langMap[lang] || 'eng';
+  
+  try {
+    console.log('Initializing Tesseract for language:', tesseractLang);
+    
+    tesseractWorker = await Tesseract.createWorker(tesseractLang, 1, {
+      workerPath: chrome.runtime.getURL('lib/tesseract/worker.min.js'),
+      corePath: chrome.runtime.getURL('lib/tesseract/tesseract-core-simd.wasm.js'),
+      langPath: 'https://tessdata.projectnaptha.com/4.0.0_best',
+      logger: (m) => {
+        if (m.status === 'recognizing text') {
+          console.log('OCR Progress:', Math.round(m.progress * 100) + '%');
+        }
+      }
     });
-    await creatingOffscreen;
-    creatingOffscreen = null;
+    
+    currentLang = lang;
+    console.log('Tesseract OCR initialized successfully');
+  } catch (error) {
+    console.error('Error initializing OCR:', error);
+    throw error;
   }
 }
 
@@ -62,31 +84,23 @@ async function setupOffscreenDocument() {
  * تنفيذ OCR على الصورة
  */
 async function performOCR(imageData, lang) {
-  await setupOffscreenDocument();
-  
-  // Initialize OCR - send message with target for offscreen document
-  const initResponse = await chrome.runtime.sendMessage({
-    target: 'offscreen',
-    action: 'ocr-init',
-    lang: lang
-  });
-  
-  if (!initResponse || !initResponse.success) {
-    throw new Error(initResponse?.error || 'Failed to initialize OCR');
+  try {
+    // Initialize if needed
+    await initOCR(lang);
+    
+    if (!tesseractWorker) {
+      throw new Error('OCR worker not initialized');
+    }
+    
+    console.log('Starting OCR recognition...');
+    const { data: { text } } = await tesseractWorker.recognize(imageData);
+    console.log('OCR completed, text length:', text.length);
+    
+    return text.trim();
+  } catch (error) {
+    console.error('OCR error:', error);
+    throw error;
   }
-  
-  // Recognize text - send message with target for offscreen document
-  const recognizeResponse = await chrome.runtime.sendMessage({
-    target: 'offscreen',
-    action: 'ocr-recognize',
-    imageData: imageData
-  });
-  
-  if (!recognizeResponse || !recognizeResponse.success) {
-    throw new Error(recognizeResponse?.error || 'Failed to recognize text');
-  }
-  
-  return recognizeResponse.text;
 }
 
 /**
@@ -149,31 +163,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
   }
   
-  // Handle OCR progress messages - معالجة رسائل تقدم OCR
-  if (message.type === 'ocr-progress') {
-    return false;
-  }
-  
   return false;
 });
-
-// Context menu for right-click translation (optional feature)
-// قائمة السياق للترجمة بالنقر اليمين (ميزة اختيارية)
-/*
-chrome.contextMenus.create({
-  id: 'translateImage',
-  title: 'ترجم هذه الصورة',
-  contexts: ['image']
-});
-
-chrome.contextMenus.onClicked.addListener((info, tab) => {
-  if (info.menuItemId === 'translateImage') {
-    chrome.tabs.sendMessage(tab.id, {
-      action: 'translateSingleImage',
-      imageUrl: info.srcUrl
-    });
-  }
-});
-*/
 
 console.log('Manga Translator background service worker loaded');
