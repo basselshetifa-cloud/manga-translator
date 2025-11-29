@@ -1,13 +1,10 @@
 /**
  * Manga Translator - Background Service Worker
  * خدمة الخلفية للإضافة
+ * 
+ * Uses Gemini Vision API for OCR and translation in one step
+ * يستخدم Gemini Vision API للتعرف على النص والترجمة في خطوة واحدة
  */
-
-// Import Tesseract.js
-importScripts('../lib/tesseract/tesseract.min.js');
-
-let tesseractWorker = null;
-let currentLang = null;
 
 // Extension installation event - حدث تثبيت الإضافة
 chrome.runtime.onInstalled.addListener((details) => {
@@ -31,74 +28,81 @@ chrome.runtime.onStartup.addListener(() => {
 });
 
 /**
- * Initialize Tesseract OCR worker
- * تهيئة عامل Tesseract OCR
+ * Extract text and translate using Gemini Vision API
+ * استخراج النص وترجمته باستخدام Gemini Vision API
+ * @param {string} imageBase64 - الصورة كـ base64 (بدون data URL prefix)
+ * @param {string} mimeType - نوع الصورة (image/jpeg, image/png, etc.)
+ * @param {Object} settings - إعدادات الترجمة
+ * @returns {Promise<string>} النص المترجم
  */
-async function initOCR(lang) {
-  // If already initialized with same language, skip
-  if (tesseractWorker && currentLang === lang) {
-    console.log('OCR already initialized for:', lang);
-    return;
+async function extractAndTranslate(imageBase64, mimeType, settings) {
+  const { apiKey, targetLang, sourceLang } = settings;
+  
+  if (!apiKey) {
+    throw new Error('مفتاح API غير متوفر');
   }
   
-  // Terminate existing worker if different language
-  if (tesseractWorker) {
-    await tesseractWorker.terminate();
-    tesseractWorker = null;
-  }
-  
-  const langMap = {
-    'eng': 'eng',
-    'jpn': 'jpn',
-    'kor': 'kor',
-    'chi_sim': 'chi_sim',
-    'chi_tra': 'chi_tra'
+  // Build source language context
+  const sourceContext = {
+    'jpn': 'Japanese manga',
+    'kor': 'Korean manhwa',
+    'chi_sim': 'Chinese (Simplified) manhua',
+    'chi_tra': 'Chinese (Traditional) manhua',
+    'eng': 'English translated manga/manhwa'
   };
   
-  const tesseractLang = langMap[lang] || 'eng';
+  const contentType = sourceContext[sourceLang] || 'manga/manhwa';
   
-  try {
-    console.log('Initializing Tesseract for language:', tesseractLang);
-    
-    tesseractWorker = await Tesseract.createWorker(tesseractLang, 1, {
-      workerPath: chrome.runtime.getURL('lib/tesseract/worker.min.js'),
-      corePath: chrome.runtime.getURL('lib/tesseract/tesseract-core-simd.wasm.js'),
-      langPath: 'https://tessdata.projectnaptha.com/4.0.0_best',
-      logger: (m) => {
-        if (m.status === 'recognizing text') {
-          console.log('OCR Progress:', Math.round(m.progress * 100) + '%');
-        }
-      }
-    });
-    
-    currentLang = lang;
-    console.log('Tesseract OCR initialized successfully');
-  } catch (error) {
-    console.error('Error initializing OCR:', error);
-    throw error;
-  }
-}
+  // Build the prompt for Gemini Vision
+  const prompt = `You are an expert manga/manhwa translator. This is a ${contentType} image.
 
-/**
- * Perform OCR on image
- * تنفيذ OCR على الصورة
- */
-async function performOCR(imageData, lang) {
+TASK: Extract ALL text from this image and translate it to ${targetLang}.
+
+RULES:
+1. Keep character names unchanged (transliterate to Arabic script if needed, e.g., ナルト = ناروتو)
+2. Maintain the emotional tone and intensity
+3. Translate sound effects with their meaning (e.g., ドキドキ = قلبي يدق بسرعة)
+4. For ${targetLang === 'Arabic' ? 'Arabic, use Modern Standard Arabic (الفصحى), use Arabic quotation marks «»' : 'the target language, use natural expressions'}
+5. If multiple speech bubbles exist, separate each translation with a newline
+
+OUTPUT: Return ONLY the translated text, nothing else. No explanations, no notes, no "Here's the translation:".`;
+
   try {
-    // Initialize if needed
-    await initOCR(lang);
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { inline_data: { mime_type: mimeType, data: imageBase64 } },
+              { text: prompt }
+            ]
+          }],
+          generationConfig: {
+            temperature: 0.3,
+            maxOutputTokens: 2048
+          }
+        })
+      }
+    );
     
-    if (!tesseractWorker) {
-      throw new Error('OCR worker not initialized');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData.error?.message || `HTTP ${response.status}`;
+      throw new Error(`خطأ من Gemini API: ${errorMessage}`);
     }
     
-    console.log('Starting OCR recognition...');
-    const { data: { text } } = await tesseractWorker.recognize(imageData);
-    console.log('OCR completed, text length:', text.length);
+    const data = await response.json();
     
-    return text.trim();
+    if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+      return data.candidates[0].content.parts[0].text.trim();
+    }
+    
+    throw new Error('رد غير صالح من Gemini API');
   } catch (error) {
-    console.error('OCR error:', error);
+    console.error('Gemini Vision API error:', error);
     throw error;
   }
 }
@@ -107,7 +111,7 @@ async function performOCR(imageData, lang) {
  * Fetch image and convert to base64
  * تحميل الصورة وتحويلها لـ base64
  * @param {string} url - رابط الصورة
- * @returns {Promise<string>} الصورة كـ base64
+ * @returns {Promise<Object>} الصورة كـ base64 مع نوع MIME
  */
 async function fetchImageAsBase64(url) {
   try {
@@ -121,10 +125,17 @@ async function fetchImageAsBase64(url) {
     }
     
     const blob = await response.blob();
+    const mimeType = blob.type || 'image/jpeg';
     
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
+      reader.onloadend = () => {
+        // reader.result is a data URL like "data:image/jpeg;base64,..."
+        resolve({
+          dataUrl: reader.result,
+          mimeType: mimeType
+        });
+      };
       reader.onerror = () => reject(new Error('Failed to read image blob'));
       reader.readAsDataURL(blob);
     });
@@ -134,23 +145,54 @@ async function fetchImageAsBase64(url) {
   }
 }
 
+/**
+ * Extract base64 data from data URL
+ * استخراج بيانات base64 من data URL
+ * @param {string} dataUrl - data URL كاملة
+ * @returns {Object} البيانات ونوع MIME
+ */
+function parseDataUrl(dataUrl) {
+  const matches = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+  if (matches) {
+    return {
+      mimeType: matches[1],
+      base64: matches[2]
+    };
+  }
+  throw new Error('Invalid data URL format');
+}
+
 // Listen for messages from popup or content scripts
 // الاستماع للرسائل من الواجهة أو سكريبتات المحتوى
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('Background received message:', message, 'from:', sender);
+  console.log('Background received message:', message.action || message.type, 'from:', sender.tab?.url || 'extension');
   
   // Handle image fetch request - معالجة طلب تحميل الصورة
   if (message.action === 'fetchImage') {
     fetchImageAsBase64(message.url)
-      .then(base64 => sendResponse({ success: true, data: base64 }))
+      .then(result => sendResponse({ success: true, data: result.dataUrl, mimeType: result.mimeType }))
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true; // Keep channel open for async response
   }
   
-  // Handle OCR request - معالجة طلب OCR
-  if (message.action === 'performOCR') {
-    performOCR(message.imageData, message.lang)
-      .then(text => sendResponse({ success: true, text: text }))
+  // Handle extract and translate request (new Gemini Vision approach)
+  // معالجة طلب الاستخراج والترجمة (النهج الجديد مع Gemini Vision)
+  if (message.action === 'extractAndTranslate') {
+    const { imageData, settings } = message;
+    
+    // Parse the data URL to get base64 and mime type
+    let base64Data, mimeType;
+    try {
+      const parsed = parseDataUrl(imageData);
+      base64Data = parsed.base64;
+      mimeType = parsed.mimeType;
+    } catch (e) {
+      sendResponse({ success: false, error: 'صيغة الصورة غير صالحة' });
+      return true;
+    }
+    
+    extractAndTranslate(base64Data, mimeType, settings)
+      .then(translatedText => sendResponse({ success: true, text: translatedText }))
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true;
   }
