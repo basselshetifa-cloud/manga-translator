@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مترجم المانجا</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <!-- العنوان / Header -->
+    <header class="header">
+      <h1 class="title">🎌 مترجم المانجا</h1>
+      <p class="subtitle">ترجمة بالذكاء الاصطناعي</p>
+    </header>
+
+    <!-- اختيار API Provider -->
+    <div class="form-group">
+      <label for="apiProvider">مزود الترجمة:</label>
+      <select id="apiProvider" class="select-input">
+        <option value="gemini">Google Gemini (مجاني)</option>
+        <option value="groq">Groq (مجاني)</option>
+        <option value="cohere">Cohere (مجاني)</option>
+      </select>
+    </div>
+
+    <!-- إدخال API Key -->
+    <div class="form-group">
+      <label for="apiKey">مفتاح API:</label>
+      <div class="api-key-wrapper">
+        <input type="password" id="apiKey" class="text-input" placeholder="أدخل مفتاح API...">
+        <button type="button" id="toggleApiKey" class="toggle-btn" title="إظهار/إخفاء">
+          👁️
+        </button>
+      </div>
+      <a href="#" id="getApiKeyLink" class="help-link">كيف أحصل على مفتاح مجاني؟</a>
+    </div>
+
+    <!-- اختيار لغة المصدر -->
+    <div class="form-group">
+      <label for="sourceLang">لغة المصدر:</label>
+      <select id="sourceLang" class="select-input">
+        <option value="jpn">اليابانية (日本語)</option>
+        <option value="kor">الكورية (한국어)</option>
+        <option value="chi_sim">الصينية المبسطة (简体中文)</option>
+        <option value="chi_tra">الصينية التقليدية (繁體中文)</option>
+      </select>
+    </div>
+
+    <!-- اختيار لغة الهدف -->
+    <div class="form-group">
+      <label for="targetLang">لغة الترجمة:</label>
+      <select id="targetLang" class="select-input">
+        <option value="Arabic">العربية</option>
+        <option value="English">الإنجليزية</option>
+      </select>
+    </div>
+
+    <!-- أزرار الترجمة -->
+    <div class="button-group">
+      <button type="button" id="translatePage" class="btn btn-primary">
+        📄 ترجم الصفحة كاملة
+      </button>
+      <button type="button" id="selectImage" class="btn btn-secondary">
+        🖼️ اختر صورة معينة
+      </button>
+    </div>
+
+    <!-- شريط التقدم -->
+    <div class="progress-container" id="progressContainer">
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <p class="progress-text" id="progressText">جاري الترجمة...</p>
+    </div>
+
+    <!-- رسائل الحالة -->
+    <div class="status-message" id="statusMessage"></div>
+
+    <!-- الفوتر -->
+    <footer class="footer">
+      <p>الإصدار 1.0.0 | صُنع بـ ❤️</p>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

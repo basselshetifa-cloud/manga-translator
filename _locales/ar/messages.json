@@ -1,0 +1,90 @@
+{
+  "extName": {
+    "message": "مترجم المانجا",
+    "description": "اسم الإضافة"
+  },
+  "extDescription": {
+    "message": "ترجمة المانجا والمانهوا بالذكاء الاصطناعي - مجاني 100%",
+    "description": "وصف الإضافة"
+  },
+  "translatePage": {
+    "message": "ترجم الصفحة كاملة",
+    "description": "زر ترجمة كل الصور في الصفحة"
+  },
+  "selectImage": {
+    "message": "اختر صورة معينة",
+    "description": "زر اختيار صورة واحدة للترجمة"
+  },
+  "apiProvider": {
+    "message": "مزود الترجمة",
+    "description": "تسمية اختيار مزود API"
+  },
+  "apiKey": {
+    "message": "مفتاح API",
+    "description": "تسمية حقل مفتاح API"
+  },
+  "sourceLang": {
+    "message": "لغة المصدر",
+    "description": "تسمية اختيار لغة المصدر"
+  },
+  "targetLang": {
+    "message": "لغة الترجمة",
+    "description": "تسمية اختيار لغة الهدف"
+  },
+  "japanese": {
+    "message": "اليابانية (日本語)",
+    "description": "خيار اللغة اليابانية"
+  },
+  "korean": {
+    "message": "الكورية (한국어)",
+    "description": "خيار اللغة الكورية"
+  },
+  "chineseSimplified": {
+    "message": "الصينية المبسطة (简体中文)",
+    "description": "خيار اللغة الصينية المبسطة"
+  },
+  "chineseTraditional": {
+    "message": "الصينية التقليدية (繁體中文)",
+    "description": "خيار اللغة الصينية التقليدية"
+  },
+  "arabic": {
+    "message": "العربية",
+    "description": "خيار اللغة العربية"
+  },
+  "english": {
+    "message": "الإنجليزية",
+    "description": "خيار اللغة الإنجليزية"
+  },
+  "getApiKeyHelp": {
+    "message": "كيف أحصل على مفتاح مجاني؟",
+    "description": "رابط المساعدة للحصول على مفتاح API"
+  },
+  "translating": {
+    "message": "جاري الترجمة...",
+    "description": "رسالة حالة الترجمة"
+  },
+  "translationComplete": {
+    "message": "تمت الترجمة بنجاح!",
+    "description": "رسالة نجاح الترجمة"
+  },
+  "translationError": {
+    "message": "حدث خطأ أثناء الترجمة",
+    "description": "رسالة خطأ الترجمة"
+  },
+  "noApiKey": {
+    "message": "الرجاء إدخال مفتاح API أولاً",
+    "description": "رسالة تنبيه عند عدم وجود مفتاح API"
+  },
+  "noImagesFound": {
+    "message": "لم يتم العثور على صور مناسبة للترجمة",
+    "description": "رسالة عند عدم وجود صور"
+  },
+  "selectImageMode": {
+    "message": "انقر على صورة لترجمتها - اضغط ESC للإلغاء",
+    "description": "تعليمات وضع اختيار الصورة"
+  },
+  "selectionCancelled": {
+    "message": "تم إلغاء وضع الاختيار",
+    "description": "رسالة إلغاء الاختيار"
+  }
+}

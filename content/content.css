@@ -1,0 +1,232 @@
+/**
+ * Manga Translator - Content Styles
+ * أنماط المحتوى للإضافة
+ */
+
+/* ============================================
+   Overlay for Selection Mode
+   طبقة التغطية لوضع الاختيار
+   ============================================ */
+
+.manga-translator-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 999998;
+  pointer-events: none;
+  animation: fadeIn 0.3s ease;
+}
+
+/* ============================================
+   Tooltip for Selection Mode
+   التلميح لوضع الاختيار
+   ============================================ */
+
+.manga-translator-tooltip {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #ffffff;
+  padding: 12px 24px;
+  border-radius: 30px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  z-index: 1000000;
+  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+  animation: slideDown 0.4s ease;
+  direction: rtl;
+  text-align: center;
+}
+
+/* ============================================
+   Highlight for Hoverable Images
+   تمييز الصور القابلة للتحويم
+   ============================================ */
+
+.manga-translator-highlight {
+  outline: 4px solid #00ff88 !important;
+  outline-offset: 2px !important;
+  cursor: pointer !important;
+  position: relative;
+  z-index: 999999;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+}
+
+.manga-translator-highlight:hover {
+  transform: scale(1.02);
+  box-shadow: 0 0 30px rgba(0, 255, 136, 0.7);
+}
+
+/* ============================================
+   Loading Indicator on Images
+   مؤشر التحميل على الصور
+   ============================================ */
+
+.manga-translator-loading {
+  position: relative;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.manga-translator-loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 50px;
+  height: 50px;
+  margin: -25px 0 0 -25px;
+  border: 4px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* ============================================
+   Translated Image Badge
+   شارة الصورة المترجمة
+   ============================================ */
+
+[data-translated="true"] {
+  position: relative;
+}
+
+[data-translated="true"]::before {
+  content: '✓ مترجم';
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: linear-gradient(135deg, #00ff88 0%, #00d9ff 100%);
+  color: #000;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: bold;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  z-index: 10;
+  box-shadow: 0 2px 10px rgba(0, 255, 136, 0.4);
+}
+
+/* ============================================
+   Error State for Images
+   حالة الخطأ للصور
+   ============================================ */
+
+.manga-translator-error {
+  outline: 3px solid #ff5252 !important;
+  outline-offset: 2px !important;
+}
+
+.manga-translator-error::after {
+  content: '⚠️ فشلت الترجمة';
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 82, 82, 0.9);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* ============================================
+   Animations
+   الحركات
+   ============================================ */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(0, 255, 136, 0.8);
+  }
+}
+
+/* ============================================
+   Progress Notification
+   إشعار التقدم
+   ============================================ */
+
+.manga-translator-progress-notification {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: #ffffff;
+  padding: 16px 24px;
+  border-radius: 12px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 14px;
+  z-index: 1000001;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  direction: rtl;
+  min-width: 250px;
+  animation: slideUp 0.4s ease;
+}
+
+.manga-translator-progress-notification .progress-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  margin-top: 10px;
+  overflow: hidden;
+}
+
+.manga-translator-progress-notification .progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00ff88 0%, #00d9ff 100%);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
