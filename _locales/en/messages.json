@@ -1,0 +1,90 @@
+{
+  "extName": {
+    "message": "Manga Translator AI",
+    "description": "Extension name"
+  },
+  "extDescription": {
+    "message": "Translate manga and manhwa with AI - 100% Free",
+    "description": "Extension description"
+  },
+  "translatePage": {
+    "message": "Translate Full Page",
+    "description": "Button to translate all images on page"
+  },
+  "selectImage": {
+    "message": "Select Specific Image",
+    "description": "Button to select single image for translation"
+  },
+  "apiProvider": {
+    "message": "Translation Provider",
+    "description": "Label for API provider selection"
+  },
+  "apiKey": {
+    "message": "API Key",
+    "description": "Label for API key input field"
+  },
+  "sourceLang": {
+    "message": "Source Language",
+    "description": "Label for source language selection"
+  },
+  "targetLang": {
+    "message": "Target Language",
+    "description": "Label for target language selection"
+  },
+  "japanese": {
+    "message": "Japanese (日本語)",
+    "description": "Japanese language option"
+  },
+  "korean": {
+    "message": "Korean (한국어)",
+    "description": "Korean language option"
+  },
+  "chineseSimplified": {
+    "message": "Chinese Simplified (简体中文)",
+    "description": "Simplified Chinese language option"
+  },
+  "chineseTraditional": {
+    "message": "Chinese Traditional (繁體中文)",
+    "description": "Traditional Chinese language option"
+  },
+  "arabic": {
+    "message": "Arabic",
+    "description": "Arabic language option"
+  },
+  "english": {
+    "message": "English",
+    "description": "English language option"
+  },
+  "getApiKeyHelp": {
+    "message": "How to get a free API key?",
+    "description": "Help link for getting API key"
+  },
+  "translating": {
+    "message": "Translating...",
+    "description": "Translation status message"
+  },
+  "translationComplete": {
+    "message": "Translation completed successfully!",
+    "description": "Translation success message"
+  },
+  "translationError": {
+    "message": "An error occurred during translation",
+    "description": "Translation error message"
+  },
+  "noApiKey": {
+    "message": "Please enter an API key first",
+    "description": "Alert message when API key is missing"
+  },
+  "noImagesFound": {
+    "message": "No suitable images found for translation",
+    "description": "Message when no images are found"
+  },
+  "selectImageMode": {
+    "message": "Click on an image to translate - Press ESC to cancel",
+    "description": "Instructions for image selection mode"
+  },
+  "selectionCancelled": {
+    "message": "Selection mode cancelled",
+    "description": "Selection cancelled message"
+  }
+}
