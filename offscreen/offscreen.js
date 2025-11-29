@@ -83,6 +83,11 @@ async function cleanup() {
 // Listen for messages from background script
 // الاستماع للرسائل من سكريبت الخلفية
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // Only handle messages targeted at offscreen document
+  if (message.target !== 'offscreen') {
+    return false;
+  }
+  
   if (message.action === 'ocr-init') {
     initOCR(message.lang)
       .then(() => sendResponse({ success: true }))
@@ -103,6 +108,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true;
   }
+  
+  return false;
 });
 
 console.log('Offscreen OCR document loaded');

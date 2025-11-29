@@ -64,24 +64,26 @@ async function setupOffscreenDocument() {
 async function performOCR(imageData, lang) {
   await setupOffscreenDocument();
   
-  // Initialize OCR
+  // Initialize OCR - send message with target for offscreen document
   const initResponse = await chrome.runtime.sendMessage({
+    target: 'offscreen',
     action: 'ocr-init',
     lang: lang
   });
   
-  if (!initResponse.success) {
-    throw new Error(initResponse.error || 'Failed to initialize OCR');
+  if (!initResponse || !initResponse.success) {
+    throw new Error(initResponse?.error || 'Failed to initialize OCR');
   }
   
-  // Recognize text
+  // Recognize text - send message with target for offscreen document
   const recognizeResponse = await chrome.runtime.sendMessage({
+    target: 'offscreen',
     action: 'ocr-recognize',
     imageData: imageData
   });
   
-  if (!recognizeResponse.success) {
-    throw new Error(recognizeResponse.error || 'Failed to recognize text');
+  if (!recognizeResponse || !recognizeResponse.success) {
+    throw new Error(recognizeResponse?.error || 'Failed to recognize text');
   }
   
   return recognizeResponse.text;
