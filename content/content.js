@@ -790,7 +790,13 @@ function sendProgress(percent, text) {
     type: 'progress',
     percent: percent,
     text: text
-  }).catch(() => {}); // Ignore errors if popup is closed
+  }).catch((error) => {
+    // Popup may be closed - log for debugging but don't throw
+    // الواجهة قد تكون مغلقة - تسجيل للتصحيح بدون رمي خطأ
+    if (error.message !== 'Could not establish connection. Receiving end does not exist.') {
+      console.debug('Progress message failed:', error.message);
+    }
+  });
 }
 
 /**
@@ -801,7 +807,11 @@ function sendComplete(message) {
   chrome.runtime.sendMessage({
     type: 'complete',
     message: message
-  }).catch(() => {});
+  }).catch((error) => {
+    if (error.message !== 'Could not establish connection. Receiving end does not exist.') {
+      console.debug('Complete message failed:', error.message);
+    }
+  });
 }
 
 /**
@@ -812,7 +822,11 @@ function sendError(message) {
   chrome.runtime.sendMessage({
     type: 'error',
     message: message
-  }).catch(() => {});
+  }).catch((error) => {
+    if (error.message !== 'Could not establish connection. Receiving end does not exist.') {
+      console.debug('Error message failed:', error.message);
+    }
+  });
 }
 
 // ============================================

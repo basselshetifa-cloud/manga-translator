@@ -266,7 +266,9 @@ selectImageBtn.addEventListener('click', handleSelectImage);
 getApiKeyLink.addEventListener('click', async (e) => {
   e.preventDefault();
   const url = getApiKeyLink.href;
-  if (url && url !== '#') {
+  // Validate URL against allowed domains - التحقق من الرابط
+  const allowedUrls = Object.values(API_HELP_LINKS);
+  if (url && url !== '#' && allowedUrls.includes(url)) {
     await chrome.tabs.create({ url: url });
   }
 });
