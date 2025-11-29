@@ -863,12 +863,20 @@ async function handleImageClick(e) {
   e.preventDefault();
   e.stopPropagation();
   
+  // Save settings before disabling selection mode
+  // حفظ الإعدادات قبل تعطيل وضع الاختيار
+  if (!currentSettings) {
+    sendError('الإعدادات غير متاحة');
+    return;
+  }
+  const settings = { ...currentSettings };
+  
   // Disable selection mode - تعطيل وضع الاختيار
   disableImageSelection();
   
   try {
     sendProgress(5, 'جاري ترجمة الصورة المحددة...');
-    const translatedCanvas = await translateImage(img, currentSettings);
+    const translatedCanvas = await translateImage(img, settings);
     replaceImageWithCanvas(img, translatedCanvas);
     
     sendComplete('تمت ترجمة الصورة بنجاح!');
