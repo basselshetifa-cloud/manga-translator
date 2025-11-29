@@ -133,17 +133,21 @@ function buildTranslationPrompt(text, targetLang, sourceLang = '') {
     'jpn': 'Japanese manga',
     'kor': 'Korean manhwa',
     'chi_sim': 'Chinese manhua',
-    'chi_tra': 'Chinese manhua'
+    'chi_tra': 'Chinese manhua',
+    'eng': 'English translated manga/manhwa'
   };
   
   const contentType = sourceContext[sourceLang] || 'manga/manhwa';
   
   // توجيهات خاصة للعربية
   const arabicInstructions = targetLang === 'Arabic' ? `
-- Use a mix of Modern Standard Arabic (فصحى) for dramatic moments and Egyptian dialect (عامية مصرية) for casual dialogue
-- Examples of Egyptian dialect to use naturally: يعني، والله، يلا، خلاص، طيب، ايه ده، ازيك
-- Write numbers in Arabic numerals (١، ٢، ٣)
-- Use Arabic quotation marks «» for speech` : '';
+- Use Modern Standard Arabic (الفصحى) throughout the translation
+- Keep the language elegant, clear, and professional
+- Use proper Arabic grammar and sentence structure
+- Avoid colloquial/dialect words completely
+- Write numbers in Arabic numerals (١، ٢، ٣) or words when appropriate
+- Use Arabic quotation marks «» for speech
+- For emphasis, use proper Arabic emphatic structures` : '';
 
   // توجيهات خاصة بنوع المحتوى
   const contentInstructions = {
@@ -160,7 +164,14 @@ function buildTranslationPrompt(text, targetLang, sourceLang = '') {
     'Chinese manhua': `
 - For cultivation/Xianxia terms: 气 = تشي، 丹田 = دانتيان، 境界 = مرحلة/عالم، 突破 = اختراق
 - Titles: 师父 = المعلم، 前辈 = السيد الأكبر، 弟子 = التلميذ
-- Keep martial arts technique names with transliteration`
+- Keep martial arts technique names with transliteration`,
+    
+    'English translated manga/manhwa': `
+- This is already translated manga/manhwa in English
+- Focus on natural Arabic translation that flows well
+- Maintain any Japanese/Korean/Chinese terms that were kept in English (like honorifics, attack names)
+- Adapt English expressions and idioms to Arabic equivalents
+- Keep character names as they appear in the English version`
   };
 
   const specificInstructions = contentInstructions[contentType] || '';
