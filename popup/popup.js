@@ -12,6 +12,8 @@ const sourceLangSelect = document.getElementById('sourceLang');
 const targetLangSelect = document.getElementById('targetLang');
 const translatePageBtn = document.getElementById('translatePage');
 const selectImageBtn = document.getElementById('selectImage');
+const undoAllBtn = document.getElementById('undoAll');
+const downloadAllBtn = document.getElementById('downloadAll');
 const progressContainer = document.getElementById('progressContainer');
 const progressFill = document.getElementById('progressFill');
 const progressText = document.getElementById('progressText');
@@ -233,6 +235,68 @@ function handleSelectImage() {
 }
 
 /**
+ * Handle undo all button click
+ * معالجة زر التراجع عن الكل
+ */
+async function handleUndoAll() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    
+    if (!tab) {
+      showStatus('لم يتم العثور على تبويب نشط', 'error');
+      return;
+    }
+    
+    const response = await chrome.tabs.sendMessage(tab.id, { action: 'undoAll' });
+    
+    if (response && response.success) {
+      showStatus(response.message || 'تم التراجع عن الترجمات', 'success');
+    } else {
+      showStatus('لا توجد ترجمات للتراجع عنها', 'info');
+    }
+  } catch (error) {
+    console.error('Error in undo:', error);
+    showStatus('حدث خطأ. تأكد من تحديث الصفحة.', 'error');
+  }
+}
+
+/**
+ * Handle download all button click
+ * معالجة زر تحميل الكل
+ */
+async function handleDownloadAll() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    
+    if (!tab) {
+      showStatus('لم يتم العثور على تبويب نشط', 'error');
+      return;
+    }
+    
+    // First check how many translated images exist
+    const countResponse = await chrome.tabs.sendMessage(tab.id, { action: 'getTranslatedCount' });
+    
+    if (!countResponse || countResponse.count === 0) {
+      showStatus('لا توجد صور مترجمة للتحميل', 'info');
+      return;
+    }
+    
+    showStatus(`جاري تحميل ${countResponse.count} صورة...`, 'info');
+    
+    const response = await chrome.tabs.sendMessage(tab.id, { action: 'downloadAllImages' });
+    
+    if (response && response.success) {
+      showStatus(`تم بدء تحميل ${response.count} صورة`, 'success');
+    } else {
+      showStatus('فشل تحميل الصور', 'error');
+    }
+  } catch (error) {
+    console.error('Error in download:', error);
+    showStatus('حدث خطأ. تأكد من تحديث الصفحة.', 'error');
+  }
+}
+
+/**
  * Listen for progress updates from content script
  * الاستماع لتحديثات التقدم من content script
  */
@@ -261,6 +325,8 @@ targetLangSelect.addEventListener('change', saveSettings);
 toggleApiKeyBtn.addEventListener('click', toggleApiKeyVisibility);
 translatePageBtn.addEventListener('click', handleTranslatePage);
 selectImageBtn.addEventListener('click', handleSelectImage);
+undoAllBtn.addEventListener('click', handleUndoAll);
+downloadAllBtn.addEventListener('click', handleDownloadAll);
 
 // Open help link in new tab - فتح رابط المساعدة في تبويب جديد
 getApiKeyLink.addEventListener('click', async (e) => {
