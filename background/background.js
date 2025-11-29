@@ -2,8 +2,8 @@
  * Manga Translator - Background Service Worker
  * خدمة الخلفية للإضافة
  * 
- * Uses Gemini Vision API for OCR and translation in one step
- * يستخدم Gemini Vision API للتعرف على النص والترجمة في خطوة واحدة
+ * Uses Gemini Vision API for OCR, translation, and text location detection
+ * يستخدم Gemini Vision API للتعرف على النص والترجمة وكشف مواقع النص
  */
 
 // Extension installation event - حدث تثبيت الإضافة
@@ -108,6 +108,105 @@ OUTPUT: Return ONLY the translated text, nothing else. No explanations, no notes
 }
 
 /**
+ * Extract text with locations using Gemini Vision API
+ * استخراج النصوص مع مواقعها باستخدام Gemini Vision API
+ * @param {string} imageBase64 - الصورة كـ base64 (بدون data URL prefix)
+ * @param {string} mimeType - نوع الصورة (image/jpeg, image/png, etc.)
+ * @param {Object} settings - إعدادات الترجمة
+ * @returns {Promise<Array>} مصفوفة النصوص مع مواقعها
+ */
+async function extractTextWithLocations(imageBase64, mimeType, settings) {
+  const { apiKey, targetLang } = settings;
+  
+  if (!apiKey) {
+    throw new Error('مفتاح API غير متوفر');
+  }
+  
+  const arabicInstructions = targetLang === 'Arabic' ? 'For Arabic: Use Modern Standard Arabic (الفصحى), elegant and clear.' : '';
+  
+  const prompt = `You are a manga text extractor. Analyze this manga/manhwa image.
+
+TASK: Find ALL text/dialogue and return their locations and translations.
+
+OUTPUT FORMAT (JSON array only, no other text):
+[
+  {
+    "original": "original text here",
+    "translated": "translated text in ${targetLang}",
+    "bbox": {"x": 10, "y": 5, "width": 20, "height": 8},
+    "darkBackground": false
+  }
+]
+
+RULES:
+- bbox values are PERCENTAGES (0-100) of image dimensions
+- x, y = top-left corner position
+- width, height = size of text area
+- darkBackground = true if text is on dark/black area, false if on light/white
+- Include EVERY piece of text visible in the image
+- Translate naturally to ${targetLang}
+- Return ONLY the JSON array, no explanations
+
+${arabicInstructions}`;
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { inline_data: { mime_type: mimeType, data: imageBase64 } },
+              { text: prompt }
+            ]
+          }],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 4096
+          }
+        })
+      }
+    );
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData.error?.message || `HTTP ${response.status}`;
+      throw new Error(`خطأ من Gemini API: ${errorMessage}`);
+    }
+    
+    const data = await response.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    
+    // Extract JSON from response
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) {
+      throw new Error('No JSON found in response');
+    }
+    
+    const items = JSON.parse(jsonMatch[0]);
+    
+    // Validate and sanitize items
+    return items.map(item => ({
+      original: String(item.original || ''),
+      translated: String(item.translated || ''),
+      bbox: {
+        x: Number(item.bbox?.x) || 0,
+        y: Number(item.bbox?.y) || 0,
+        width: Number(item.bbox?.width) || 10,
+        height: Number(item.bbox?.height) || 5
+      },
+      darkBackground: Boolean(item.darkBackground)
+    })).filter(item => item.translated.trim());
+    
+  } catch (error) {
+    console.error('Extract text with locations error:', error);
+    throw error;
+  }
+}
+
+/**
  * Fetch image and convert to base64
  * تحميل الصورة وتحويلها لـ base64
  * @param {string} url - رابط الصورة
@@ -193,6 +292,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     
     extractAndTranslate(base64Data, mimeType, settings)
       .then(translatedText => sendResponse({ success: true, text: translatedText }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+  
+  // Handle extract text with locations request (new bounding box approach)
+  // معالجة طلب استخراج النص مع المواقع (النهج الجديد مع الـ bounding boxes)
+  if (message.action === 'extractTextWithLocations') {
+    const { imageData, settings } = message;
+    
+    // Parse the data URL to get base64 and mime type
+    let base64Data, mimeType;
+    try {
+      const parsed = parseDataUrl(imageData);
+      base64Data = parsed.base64;
+      mimeType = parsed.mimeType;
+    } catch (e) {
+      sendResponse({ success: false, error: 'صيغة الصورة غير صالحة' });
+      return true;
+    }
+    
+    extractTextWithLocations(base64Data, mimeType, settings)
+      .then(items => sendResponse({ success: true, items }))
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true;
   }
