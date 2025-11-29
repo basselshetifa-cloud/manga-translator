@@ -114,6 +114,23 @@
   box-shadow: 0 2px 10px rgba(0, 255, 136, 0.4);
 }
 
+/* Translated canvas specific styles */
+canvas.manga-translator-translated {
+  cursor: pointer;
+  transition: box-shadow 0.2s ease;
+}
+
+canvas.manga-translator-translated:hover {
+  box-shadow: 0 0 15px rgba(0, 255, 136, 0.3);
+}
+
+/* Hint for double-click undo */
+canvas.manga-translator-translated::after {
+  content: 'انقر مرتين للتراجع';
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
 /* ============================================
    Error State for Images
    حالة الخطأ للصور
@@ -136,6 +153,12 @@
   border-radius: 6px;
   font-size: 12px;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Being processed indicator */
+[data-translating="true"] {
+  opacity: 0.7;
+  pointer-events: none;
 }
 
 /* ============================================

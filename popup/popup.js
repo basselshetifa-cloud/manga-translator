@@ -56,8 +56,23 @@ async function initPopup() {
 
     // Update help link - تحديث رابط المساعدة
     updateHelpLink();
+    
+    // Update version from manifest - تحديث رقم الإصدار من الملف
+    updateVersionDisplay();
   } catch (error) {
     console.error('Error loading settings:', error);
+  }
+}
+
+/**
+ * Update version display from manifest
+ * تحديث عرض رقم الإصدار من manifest
+ */
+function updateVersionDisplay() {
+  const manifest = chrome.runtime.getManifest();
+  const versionElement = document.querySelector('.footer p:first-child');
+  if (versionElement && manifest.version) {
+    versionElement.textContent = `الإصدار ${manifest.version} | صُنع بـ ❤️`;
   }
 }
 

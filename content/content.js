@@ -474,11 +474,17 @@ function detectAndCleanBubbles(canvas, textRegions = null) {
   if (textRegions && textRegions.length > 0) {
     console.log('Using Gemini-detected text regions:', textRegions.length);
     return textRegions.map(region => {
+      // Validate and sanitize region coordinates (expect normalized 0-1 range)
+      const regionX = typeof region.x === 'number' ? Math.max(0, Math.min(1, region.x)) : 0;
+      const regionY = typeof region.y === 'number' ? Math.max(0, Math.min(1, region.y)) : 0;
+      const regionW = typeof region.width === 'number' ? Math.max(0, Math.min(1, region.width)) : 0.2;
+      const regionH = typeof region.height === 'number' ? Math.max(0, Math.min(1, region.height)) : 0.1;
+      
       const bubble = {
-        x: Math.floor(region.x * width),
-        y: Math.floor(region.y * height),
-        width: Math.floor(region.width * width),
-        height: Math.floor(region.height * height),
+        x: Math.floor(regionX * width),
+        y: Math.floor(regionY * height),
+        width: Math.floor(regionW * width),
+        height: Math.floor(regionH * height),
         text: region.text || '',
         pixels: []
       };
@@ -489,7 +495,7 @@ function detectAndCleanBubbles(canvas, textRegions = null) {
       bubble.colors = getBubbleColors(canvas, bubble);
       
       return bubble;
-    });
+    }).filter(b => b.width > 0 && b.height > 0); // Filter out invalid bubbles
   }
   
   // Fall back to flood fill detection
@@ -498,7 +504,7 @@ function detectAndCleanBubbles(canvas, textRegions = null) {
   
   // Adaptive brightness threshold based on image
   let totalImageBrightness = 0;
-  for (let i = 0; i < data.length; i += 16) { // Sample every 4th pixel
+  for (let i = 0; i < data.length; i += 16) { // Sample every 4th pixel (16 = 4 pixels * 4 RGBA bytes)
     totalImageBrightness += (data[i] + data[i + 1] + data[i + 2]) / 3;
   }
   const avgImageBrightness = totalImageBrightness / (data.length / 16);
@@ -939,7 +945,7 @@ async function translateImage(img, settings) {
  * @returns {string} المعرف الفريد
  */
 function generateImageId(img) {
-  return `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return `img_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 }
 
 /**
@@ -1433,13 +1439,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   
   if (message.action === 'downloadAllImages') {
-    // Download all translated images - تحميل كل الصور المترجمة
-    const canvases = document.querySelectorAll('canvas[data-translated="true"]');
-    canvases.forEach((canvas, index) => {
-      setTimeout(() => {
-        downloadTranslatedImage(canvas, `translated_manga_${index + 1}.png`);
-      }, index * 500); // Stagger downloads
-    });
+    // Download all translated images with proper sequencing
+    const canvases = Array.from(document.querySelectorAll('canvas[data-translated="true"]'));
+    
+    if (canvases.length === 0) {
+      sendResponse({ success: false, error: 'لا توجد صور مترجمة' });
+      return true;
+    }
+    
+    // Use async/await pattern for reliable sequential downloads
+    (async () => {
+      for (let i = 0; i < canvases.length; i++) {
+        downloadTranslatedImage(canvases[i], `translated_manga_${i + 1}.png`);
+        // Wait between downloads to avoid overwhelming the browser
+        if (i < canvases.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+    })();
+    
     sendResponse({ success: true, count: canvases.length });
     return true;
   }
