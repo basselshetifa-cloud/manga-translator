@@ -201,20 +201,20 @@ ${text}`;
 }
 
 // ============================================
-// OCR Functions - وظائف التعرف على النص
+// Gemini Vision Functions - وظائف Gemini Vision
 // ============================================
 
 /**
- * Perform OCR via background script
- * تنفيذ OCR عبر سكريبت الخلفية
- * @param {string} imageData - الصورة كـ base64
- * @param {string} lang - لغة المصدر
- * @returns {Promise<string>} النص المستخرج
+ * Extract text and translate via background script using Gemini Vision API
+ * استخراج النص وترجمته عبر سكريبت الخلفية باستخدام Gemini Vision API
+ * @param {string} imageData - الصورة كـ data URL
+ * @param {Object} settings - إعدادات الترجمة
+ * @returns {Promise<string>} النص المترجم
  */
-async function performOCRViaBackground(imageData, lang) {
+async function extractAndTranslateViaBackground(imageData, settings) {
   return new Promise((resolve, reject) => {
     chrome.runtime.sendMessage(
-      { action: 'performOCR', imageData: imageData, lang: lang },
+      { action: 'extractAndTranslate', imageData: imageData, settings: settings },
       (response) => {
         if (chrome.runtime.lastError) {
           reject(new Error(chrome.runtime.lastError.message));
@@ -223,7 +223,7 @@ async function performOCRViaBackground(imageData, lang) {
         if (response && response.success) {
           resolve(response.text);
         } else {
-          reject(new Error(response?.error || 'OCR failed'));
+          reject(new Error(response?.error || 'فشل استخراج النص والترجمة'));
         }
       }
     );
@@ -519,6 +519,7 @@ async function translateImage(img, settings) {
     // Create canvas from image - إنشاء كانفاس من الصورة
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
+    let imageDataUrl;
     
     // Try to load image, use background fetch if CORS fails
     // محاولة تحميل الصورة، استخدام الخلفية إذا فشل CORS
@@ -536,20 +537,21 @@ async function translateImage(img, settings) {
       canvas.width = tempImg.naturalWidth || tempImg.width;
       canvas.height = tempImg.naturalHeight || tempImg.height;
       ctx.drawImage(tempImg, 0, 0);
+      imageDataUrl = canvas.toDataURL('image/jpeg', 0.9);
     } catch (corsError) {
       // CORS failed, try via background script
       // فشل CORS، محاولة عبر الخلفية
       console.warn('Direct load failed, trying via background...', corsError);
       sendProgress(12, 'جاري تحميل الصورة عبر الخلفية...');
       
-      const base64Data = await fetchImageViaBackground(img.src);
+      imageDataUrl = await fetchImageViaBackground(img.src);
       
-      // Load the base64 image
+      // Load the base64 image to get dimensions for canvas
       const bgImg = new Image();
       await new Promise((resolve, reject) => {
         bgImg.onload = resolve;
         bgImg.onerror = () => reject(new Error('Failed to load fetched image'));
-        bgImg.src = base64Data;
+        bgImg.src = imageDataUrl;
       });
       
       canvas.width = bgImg.naturalWidth || bgImg.width;
@@ -557,27 +559,19 @@ async function translateImage(img, settings) {
       ctx.drawImage(bgImg, 0, 0);
     }
     
-    // Extract text from image using background OCR - استخراج النص عبر الخلفية
-    sendProgress(35, 'جاري استخراج النص من الصورة...');
-    const extractedText = await performOCRViaBackground(canvas.toDataURL(), settings.sourceLang);
+    // Use Gemini Vision API to extract and translate in one step
+    // استخدام Gemini Vision API للاستخراج والترجمة في خطوة واحدة
+    sendProgress(35, 'جاري استخراج النص وترجمته بالذكاء الاصطناعي...');
+    const translatedText = await extractAndTranslateViaBackground(imageDataUrl, settings);
     
     // Clean up text - تنظيف النص
-    const cleanedText = extractedText.trim().replace(/\n{3,}/g, '\n\n');
+    const cleanedTranslation = translatedText.trim().replace(/\n{3,}/g, '\n\n');
     
-    if (!cleanedText) {
+    if (!cleanedTranslation) {
       throw new Error('لم يتم العثور على نص في الصورة');
     }
     
-    console.log('Extracted text:', cleanedText);
-    
-    // Translate text - ترجمة النص
-    const translatedText = await translateText(
-      cleanedText,
-      settings.targetLang,
-      settings.apiProvider,
-      settings.apiKey,
-      settings.sourceLang
-    );
+    console.log('Translated text:', cleanedTranslation);
     
     // Detect and clean bubbles - كشف وتنظيف الفقاعات
     sendProgress(75, 'جاري معالجة فقاعات الكلام...');
@@ -589,10 +583,10 @@ async function translateImage(img, settings) {
     
     if (bubbles.length > 0) {
       // Distribute text among bubbles - توزيع النص على الفقاعات
-      const textParts = translatedText.split(/[.!?。！？\n]+/).filter(t => t.trim());
+      const textParts = cleanedTranslation.split(/[.!?。！？\n]+/).filter(t => t.trim());
       
       bubbles.forEach((bubble, index) => {
-        const textPart = textParts[index % textParts.length] || translatedText;
+        const textPart = textParts[index % textParts.length] || cleanedTranslation;
         addTextToBubble(canvas, textPart.trim(), bubble, isRTL);
       });
     } else {
@@ -603,7 +597,7 @@ async function translateImage(img, settings) {
         width: canvas.width * 0.8,
         height: canvas.height * 0.15
       };
-      addTextToBubble(canvas, translatedText, fakeBubble, isRTL);
+      addTextToBubble(canvas, cleanedTranslation, fakeBubble, isRTL);
     }
     
     return canvas;

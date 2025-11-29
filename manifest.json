@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Manga Translator AI",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "ترجمة المانجا والمانهوا بالذكاء الاصطناعي - مجاني 100%",
   "default_locale": "ar",
   
@@ -31,17 +31,6 @@
     "matches": ["<all_urls>"],
     "js": ["content/content.js"],
     "css": ["content/content.css"]
-  }],
-  
-  "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
-  },
-  
-  "web_accessible_resources": [{
-    "resources": [
-      "lib/tesseract/*"
-    ],
-    "matches": ["<all_urls>"]
   }],
   
   "icons": {
