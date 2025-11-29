@@ -728,6 +728,95 @@ function wrapTextInBox(ctx, text, maxWidth) {
 }
 
 /**
+ * Get average edge color from a region
+ * الحصول على متوسط لون الحافة من منطقة
+ * @param {CanvasRenderingContext2D} ctx - سياق الكانفاس
+ * @param {number} x - موقع X
+ * @param {number} y - موقع Y
+ * @param {number} width - العرض
+ * @param {number} height - الارتفاع
+ * @param {number} canvasWidth - عرض الكانفاس
+ * @param {number} canvasHeight - ارتفاع الكانفاس
+ * @returns {Object} ألوان الخلفية والنص والحدود
+ */
+function getEdgeColor(ctx, x, y, width, height, canvasWidth, canvasHeight) {
+  // Ensure bounds are valid - التأكد من صحة الحدود
+  x = Math.max(0, Math.floor(x));
+  y = Math.max(0, Math.floor(y));
+  width = Math.min(canvasWidth - x, Math.ceil(width));
+  height = Math.min(canvasHeight - y, Math.ceil(height));
+  
+  if (width <= 0 || height <= 0) {
+    return { bg: '#FFFFFF', text: '#000000', stroke: '#FFFFFF' };
+  }
+  
+  const imageData = ctx.getImageData(x, y, width, height);
+  const data = imageData.data;
+  
+  let totalR = 0, totalG = 0, totalB = 0, count = 0;
+  
+  // Sample from edges - أخذ عينات من الحواف
+  // Top edge
+  for (let i = 0; i < width; i++) {
+    const idx = i * 4;
+    if (idx < data.length - 2) {
+      totalR += data[idx];
+      totalG += data[idx + 1];
+      totalB += data[idx + 2];
+      count++;
+    }
+  }
+  
+  // Bottom edge
+  for (let i = 0; i < width; i++) {
+    const idx = ((height - 1) * width + i) * 4;
+    if (idx >= 0 && idx < data.length - 2) {
+      totalR += data[idx];
+      totalG += data[idx + 1];
+      totalB += data[idx + 2];
+      count++;
+    }
+  }
+  
+  // Left edge
+  for (let j = 0; j < height; j++) {
+    const idx = (j * width) * 4;
+    if (idx < data.length - 2) {
+      totalR += data[idx];
+      totalG += data[idx + 1];
+      totalB += data[idx + 2];
+      count++;
+    }
+  }
+  
+  // Right edge
+  for (let j = 0; j < height; j++) {
+    const idx = (j * width + width - 1) * 4;
+    if (idx >= 0 && idx < data.length - 2) {
+      totalR += data[idx];
+      totalG += data[idx + 1];
+      totalB += data[idx + 2];
+      count++;
+    }
+  }
+  
+  if (count === 0) {
+    return { bg: '#FFFFFF', text: '#000000', stroke: '#FFFFFF' };
+  }
+  
+  const r = Math.round(totalR / count);
+  const g = Math.round(totalG / count);
+  const b = Math.round(totalB / count);
+  const brightness = (r + g + b) / 3;
+  
+  return {
+    bg: `rgb(${r},${g},${b})`,
+    text: brightness < 128 ? '#FFFFFF' : '#000000',
+    stroke: brightness < 128 ? '#000000' : '#FFFFFF'
+  };
+}
+
+/**
  * Render text item on canvas using bounding box approach
  * رسم النص على الكانفاس باستخدام نهج الـ bounding box
  * @param {HTMLCanvasElement} canvas - الكانفاس
@@ -743,20 +832,18 @@ function renderTextItem(canvas, item, isRTL) {
   const w = (item.bbox.width / 100) * canvas.width;
   const h = (item.bbox.height / 100) * canvas.height;
   
-  // Add padding
-  const padding = 5;
+  // No padding - exact text area only (no extra space)
+  const padding = 0;
   const px = Math.max(0, x - padding);
   const py = Math.max(0, y - padding);
   const pw = Math.min(canvas.width - px, w + padding * 2);
   const ph = Math.min(canvas.height - py, h + padding * 2);
   
-  // Choose colors based on background
-  const bgColor = item.darkBackground ? '#000000' : '#FFFFFF';
-  const textColor = item.darkBackground ? '#FFFFFF' : '#000000';
-  const strokeColor = item.darkBackground ? '#000000' : '#FFFFFF';
+  // Get colors from edge sampling (smart fill) - أخذ الألوان من عينات الحافة
+  const colors = getEdgeColor(ctx, px, py, pw, ph, canvas.width, canvas.height);
   
-  // Clear original text area
-  ctx.fillStyle = bgColor;
+  // Clear original text area - exact area, no padding
+  ctx.fillStyle = colors.bg;
   ctx.fillRect(px, py, pw, ph);
   
   // Calculate font size
@@ -777,14 +864,14 @@ function renderTextItem(canvas, item, isRTL) {
     const lineY = startY + i * lineHeight;
     const lineX = x + w / 2;
     
-    // Stroke for visibility - cap at 3px to maintain readability
-    ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = Math.min(fontSize / 4, 3);
+    // Stroke for visibility
+    ctx.strokeStyle = colors.stroke;
+    ctx.lineWidth = Math.min(fontSize / 5, 3);
     ctx.lineJoin = 'round';
     ctx.strokeText(line, lineX, lineY);
     
     // Fill text
-    ctx.fillStyle = textColor;
+    ctx.fillStyle = colors.text;
     ctx.fillText(line, lineX, lineY);
   });
 }

@@ -122,30 +122,28 @@ async function extractTextWithLocations(imageBase64, mimeType, settings) {
     throw new Error('مفتاح API غير متوفر');
   }
   
-  const arabicInstructions = targetLang === 'Arabic' ? 'For Arabic: Use Modern Standard Arabic (الفصحى), elegant and clear.' : '';
+  const arabicInstructions = targetLang === 'Arabic' ? 'Translate to elegant Modern Standard Arabic (الفصحى).' : `Translate naturally to ${targetLang}.`;
   
-  const prompt = `You are a manga text extractor. Analyze this manga/manhwa image.
+  const prompt = `Analyze this manga/manhwa image and extract ALL text.
 
-TASK: Find ALL text/dialogue and return their locations and translations.
-
-OUTPUT FORMAT (JSON array only, no other text):
+OUTPUT FORMAT (JSON array only):
 [
   {
-    "original": "original text here",
+    "original": "original text",
     "translated": "translated text in ${targetLang}",
-    "bbox": {"x": 10, "y": 5, "width": 20, "height": 8},
+    "bbox": {"x": 10, "y": 5, "width": 15, "height": 4},
     "darkBackground": false
   }
 ]
 
-RULES:
-- bbox values are PERCENTAGES (0-100) of image dimensions
-- x, y = top-left corner position
-- width, height = size of text area
-- darkBackground = true if text is on dark/black area, false if on light/white
-- Include EVERY piece of text visible in the image
-- Translate naturally to ${targetLang}
-- Return ONLY the JSON array, no explanations
+CRITICAL RULES:
+1. bbox must be TIGHT - exactly around the text characters, no extra space
+2. bbox values are PERCENTAGES (0-100) of image dimensions
+3. x,y = top-left corner of TEXT (not speech bubble)
+4. width,height = exact size of TEXT area only
+5. darkBackground = true if text is on dark area
+6. Include EVERY piece of visible text
+7. Return ONLY valid JSON, nothing else
 
 ${arabicInstructions}`;
 
