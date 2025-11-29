@@ -111,7 +111,6 @@ const API_CONFIGS = {
 // Global Variables - المتغيرات العامة
 // ============================================
 
-let tesseractWorker = null;
 let isSelectionMode = false;
 let currentSettings = null;
 
@@ -206,84 +205,29 @@ ${text}`;
 // ============================================
 
 /**
- * Load script from CDN
- * تحميل سكريبت من CDN
- * @param {string} url - رابط السكريبت
- * @returns {Promise} وعد بتحميل السكريبت
- */
-function loadScript(url) {
-  return new Promise((resolve, reject) => {
-    // Check if already loaded - التحقق من التحميل المسبق
-    if (window.Tesseract) {
-      resolve();
-      return;
-    }
-    
-    const script = document.createElement('script');
-    script.src = url;
-    script.onload = resolve;
-    script.onerror = () => reject(new Error(`Failed to load script: ${url}`));
-    document.head.appendChild(script);
-  });
-}
-
-/**
- * Initialize Tesseract OCR
- * تهيئة محرك التعرف على النص
- * @param {string} lang - لغة التعرف (jpn, kor, chi_sim, chi_tra)
- */
-async function initOCR(lang) {
-  try {
-    // Load Tesseract.js from CDN - تحميل Tesseract.js
-    sendProgress(15, 'جاري تحميل محرك OCR...');
-    await loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js');
-    
-    // Create worker - إنشاء عامل المعالجة
-    sendProgress(25, 'جاري تهيئة التعرف على النص...');
-    tesseractWorker = await Tesseract.createWorker(lang, 1, {
-      logger: (m) => {
-        if (m.status === 'recognizing text') {
-          const percent = Math.round(25 + (m.progress * 30));
-          sendProgress(percent, `جاري التعرف على النص... ${Math.round(m.progress * 100)}%`);
-        }
-      }
-    });
-    
-    console.log('Tesseract OCR initialized for language:', lang);
-  } catch (error) {
-    console.error('Error initializing OCR:', error);
-    throw new Error('فشل في تهيئة محرك التعرف على النص');
-  }
-}
-
-/**
- * Extract text from image using OCR
- * استخراج النص من الصورة
- * @param {string} imageUrl - رابط الصورة
+ * Perform OCR via background script
+ * تنفيذ OCR عبر سكريبت الخلفية
+ * @param {string} imageData - الصورة كـ base64
+ * @param {string} lang - لغة المصدر
  * @returns {Promise<string>} النص المستخرج
  */
-async function extractText(imageUrl) {
-  if (!tesseractWorker) {
-    throw new Error('OCR not initialized');
-  }
-  
-  try {
-    sendProgress(35, 'جاري استخراج النص من الصورة...');
-    const { data: { text } } = await tesseractWorker.recognize(imageUrl);
-    
-    // Clean up text - تنظيف النص
-    const cleanedText = text.trim().replace(/\n{3,}/g, '\n\n');
-    
-    if (!cleanedText) {
-      throw new Error('لم يتم العثور على نص في الصورة');
-    }
-    
-    console.log('Extracted text:', cleanedText);
-    return cleanedText;
-  } catch (error) {
-    console.error('Error extracting text:', error);
-    throw error;
-  }
+async function performOCRViaBackground(imageData, lang) {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(
+      { action: 'performOCR', imageData: imageData, lang: lang },
+      (response) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+        if (response && response.success) {
+          resolve(response.text);
+        } else {
+          reject(new Error(response?.error || 'OCR failed'));
+        }
+      }
+    );
+  });
 }
 
 // ============================================
@@ -613,21 +557,22 @@ async function translateImage(img, settings) {
       ctx.drawImage(bgImg, 0, 0);
     }
     
-    // Initialize OCR if needed - تهيئة OCR إذا لزم الأمر
-    if (!tesseractWorker) {
-      await initOCR(settings.sourceLang);
-    }
+    // Extract text from image using background OCR - استخراج النص عبر الخلفية
+    sendProgress(35, 'جاري استخراج النص من الصورة...');
+    const extractedText = await performOCRViaBackground(canvas.toDataURL(), settings.sourceLang);
     
-    // Extract text from image - استخراج النص
-    const extractedText = await extractText(canvas.toDataURL());
+    // Clean up text - تنظيف النص
+    const cleanedText = extractedText.trim().replace(/\n{3,}/g, '\n\n');
     
-    if (!extractedText || extractedText.trim() === '') {
+    if (!cleanedText) {
       throw new Error('لم يتم العثور على نص في الصورة');
     }
     
+    console.log('Extracted text:', cleanedText);
+    
     // Translate text - ترجمة النص
     const translatedText = await translateText(
-      extractedText,
+      cleanedText,
       settings.targetLang,
       settings.apiProvider,
       settings.apiKey,
@@ -751,12 +696,6 @@ async function translatePage(settings) {
   } catch (error) {
     console.error('Error translating page:', error);
     throw error;
-  } finally {
-    // Clean up OCR worker - تنظيف عامل OCR
-    if (tesseractWorker) {
-      await tesseractWorker.terminate();
-      tesseractWorker = null;
-    }
   }
 }
 
