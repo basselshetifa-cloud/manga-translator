@@ -595,7 +595,7 @@ async function translateImage(img, settings) {
     } catch (corsError) {
       // CORS failed, try via background script
       // فشل CORS، محاولة عبر الخلفية
-      console.log('Direct load failed, trying via background...', corsError);
+      console.warn('Direct load failed, trying via background...', corsError);
       sendProgress(12, 'جاري تحميل الصورة عبر الخلفية...');
       
       const base64Data = await fetchImageViaBackground(img.src);
