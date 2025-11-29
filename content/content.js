@@ -14,7 +14,7 @@ const API_CONFIGS = {
      * Build request for Google Gemini API
      * بناء الطلب لـ Google Gemini
      */
-    buildRequest: (text, targetLang, apiKey) => ({
+    buildRequest: (text, targetLang, apiKey, sourceLang) => ({
       url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
       options: {
         method: 'POST',
@@ -24,7 +24,7 @@ const API_CONFIGS = {
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: buildTranslationPrompt(text, targetLang)
+              text: buildTranslationPrompt(text, targetLang, sourceLang)
             }]
           }],
           generationConfig: {
@@ -49,7 +49,7 @@ const API_CONFIGS = {
      * Build request for Groq API
      * بناء الطلب لـ Groq
      */
-    buildRequest: (text, targetLang, apiKey) => ({
+    buildRequest: (text, targetLang, apiKey, sourceLang) => ({
       url: 'https://api.groq.com/openai/v1/chat/completions',
       options: {
         method: 'POST',
@@ -61,7 +61,7 @@ const API_CONFIGS = {
           model: 'llama-3.1-8b-instant',
           messages: [{
             role: 'user',
-            content: buildTranslationPrompt(text, targetLang)
+            content: buildTranslationPrompt(text, targetLang, sourceLang)
           }],
           temperature: 0.3,
           max_tokens: 1024
@@ -82,7 +82,7 @@ const API_CONFIGS = {
      * Build request for Cohere API
      * بناء الطلب لـ Cohere
      */
-    buildRequest: (text, targetLang, apiKey) => ({
+    buildRequest: (text, targetLang, apiKey, sourceLang) => ({
       url: 'https://api.cohere.ai/v1/generate',
       options: {
         method: 'POST',
@@ -92,7 +92,7 @@ const API_CONFIGS = {
         },
         body: JSON.stringify({
           model: 'command',
-          prompt: buildTranslationPrompt(text, targetLang),
+          prompt: buildTranslationPrompt(text, targetLang, sourceLang),
           max_tokens: 1024,
           temperature: 0.3
         })
@@ -124,19 +124,69 @@ let currentSettings = null;
  * بناء نص التوجيه للترجمة
  * @param {string} text - النص المراد ترجمته
  * @param {string} targetLang - لغة الهدف
+ * @param {string} sourceLang - لغة المصدر (اختياري)
  * @returns {string} نص التوجيه
  */
-function buildTranslationPrompt(text, targetLang) {
-  return `You are a professional manga/manhwa translator. Translate the following text to ${targetLang}.
+function buildTranslationPrompt(text, targetLang, sourceLang = '') {
+  // تحديد نوع المحتوى بناءً على لغة المصدر
+  const sourceContext = {
+    'jpn': 'Japanese manga',
+    'kor': 'Korean manhwa',
+    'chi_sim': 'Chinese manhua',
+    'chi_tra': 'Chinese manhua'
+  };
+  
+  const contentType = sourceContext[sourceLang] || 'manga/manhwa';
+  
+  // توجيهات خاصة للعربية
+  const arabicInstructions = targetLang === 'Arabic' ? `
+- Use a mix of Modern Standard Arabic (فصحى) for dramatic moments and Egyptian dialect (عامية مصرية) for casual dialogue
+- Examples of Egyptian dialect to use naturally: يعني، والله، يلا، خلاص، طيب، ايه ده، ازيك
+- Write numbers in Arabic numerals (١، ٢، ٣)
+- Use Arabic quotation marks «» for speech` : '';
 
-Rules:
-- Keep character names unchanged (transliterate if needed)
-- Maintain emotional tone and expressions
-- Use natural dialogue style appropriate for the target language
-- Preserve onomatopoeia meanings while adapting them naturally
-- Output ONLY the translation, nothing else - no explanations, no notes
+  // توجيهات خاصة بنوع المحتوى
+  const contentInstructions = {
+    'Japanese manga': `
+- Preserve Japanese honorifics: -san (سان), -kun (كون), -chan (تشان), -sama (ساما), -sensei (سينسي)
+- Keep attack/technique names in transliterated Japanese with meaning in parentheses if needed
+- Common expressions: すごい = رهيب/خطير، やばい = مصيبة، なるほど = فاهم/آه صح`,
+    
+    'Korean manhwa': `
+- Adapt Korean honorifics: 형/오빠 = أخي الكبير، 선배 = سينباي/الأكبر، 님 = -نيم (للاحترام)
+- Korean expressions: 대박 = خطير/رهيب، 화이팅 = فايتنج/قاتل، 아이고 = يا إلهي
+- Pay attention to formal (합쇼체) vs informal (반말) speech levels`,
+    
+    'Chinese manhua': `
+- For cultivation/Xianxia terms: 气 = تشي، 丹田 = دانتيان، 境界 = مرحلة/عالم، 突破 = اختراق
+- Titles: 师父 = المعلم، 前辈 = السيد الأكبر، 弟子 = التلميذ
+- Keep martial arts technique names with transliteration`
+  };
 
-Text to translate:
+  const specificInstructions = contentInstructions[contentType] || '';
+
+  return `You are a veteran scanlation translator with 10+ years of experience in translating ${contentType}.
+
+TARGET LANGUAGE: ${targetLang}
+
+CORE RULES:
+1. **Names**: Keep ALL character names unchanged - transliterate to Arabic script if needed (e.g., ナルト = ناروتو)
+2. **Tone**: Match the emotional intensity exactly - dramatic scenes stay dramatic, funny scenes stay funny
+3. **Natural Flow**: Translation must read like native ${targetLang}, not awkward literal translation
+4. **Incomplete Text**: Manga often has incomplete sentences - complete them naturally based on context
+5. **Sound Effects**: Translate the MEANING, not the sound (ドキドキ = قلبي يدق بسرعة، 쾅 = بووم/انفجار)
+${specificInstructions}
+${arabicInstructions}
+
+QUALITY STANDARDS:
+- Must sound like professionally translated manga that native ${targetLang} readers enjoy
+- Preserve character personality through their speech patterns
+- Keep the same energy and vibe as the original
+
+OUTPUT: Translation ONLY. No explanations. No notes. No "Here's the translation:". Just the translated text.
+
+---
+TEXT TO TRANSLATE:
 ${text}`;
 }
 
@@ -236,9 +286,10 @@ async function extractText(imageUrl) {
  * @param {string} targetLang - لغة الهدف
  * @param {string} apiProvider - مزود API
  * @param {string} apiKey - مفتاح API
+ * @param {string} sourceLang - لغة المصدر (اختياري)
  * @returns {Promise<string>} النص المترجم
  */
-async function translateText(text, targetLang, apiProvider, apiKey) {
+async function translateText(text, targetLang, apiProvider, apiKey, sourceLang) {
   const config = API_CONFIGS[apiProvider];
   if (!config) {
     throw new Error(`Unknown API provider: ${apiProvider}`);
@@ -247,7 +298,7 @@ async function translateText(text, targetLang, apiProvider, apiKey) {
   sendProgress(60, 'جاري الترجمة بالذكاء الاصطناعي...');
   
   try {
-    const request = config.buildRequest(text, targetLang, apiKey);
+    const request = config.buildRequest(text, targetLang, apiKey, sourceLang);
     const response = await fetch(request.url, request.options);
     
     if (!response.ok) {
@@ -520,7 +571,8 @@ async function translateImage(img, settings) {
       extractedText,
       settings.targetLang,
       settings.apiProvider,
-      settings.apiKey
+      settings.apiKey,
+      settings.sourceLang
     );
     
     // Detect and clean bubbles - كشف وتنظيف الفقاعات
